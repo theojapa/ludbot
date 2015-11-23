@@ -1,1 +1,1 @@
-Source for ludbot.com
+Source for [ludbot.com](http://ludbot.com).
