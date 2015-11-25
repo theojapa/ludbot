@@ -1,6 +1,11 @@
 import React from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
 import THREE from 'three';
+
+// Outer array: -119.401 to -119.8 longitude (.001 step)
+// Inner array: 37.7 to 37.8 latitude
+// The first value is the elevation at 37.7 latitude, and subsequent values are deltas
+// e.g., [ 2810, -21, 5, -7, ... ] => [ 2810, 2789, 2794, 2787, ... ]
 import yos from './elevations.json';
 
 const Component = React.createClass({
@@ -43,7 +48,7 @@ const Component = React.createClass({
             for (var y = 0; y < lat_n; ++y) {
                 lat_n = yos[x].length;
                 z = 0 === y ? yos[x][y] : z + yos[x][y];
-                vertices.push(new THREE.Vector3(x, y, z / 100)); // Math.random() * 2;
+                vertices.push(new THREE.Vector3(x, y, z / 100));
             
                 if (x && y) {
                     // Create two triangular sides for a square in which 
@@ -75,6 +80,9 @@ const Component = React.createClass({
         render();
 
         function render() {
+            camera.position.y += .005;
+            spotLight.position.z -= .1;
+
             requestAnimationFrame(render);
             renderer.render(scene, camera);
         }
