@@ -22,15 +22,17 @@ const Component = React.createClass({
         scene.add(axes);
 
         var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        var xMiddle = Math.floor(yos[0].length / 2);
-        var yMiddle = Math.floor(yos.length / 2);
-        camera.position.x = xMiddle;
-        camera.position.y = -20; // End of valley
-        camera.position.z = 50;
-        camera.lookAt(new THREE.Vector3(xMiddle, 150, 0));
+        camera.up = new THREE.Vector3( 0, 0, 1 );
+        var xMiddle = Math.floor(yos.length / 2);
+        var yMiddle = Math.floor(yos[0].length / 2);
+
+        camera.position.x = yos.length + 10;
+        camera.position.y = yMiddle;
+        camera.position.z = 30;
+        camera.lookAt(new THREE.Vector3(xMiddle, yMiddle, 0));
 
         var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(-100, yMiddle, 100);
+        spotLight.position.set(-100, xMiddle, 200);
         spotLight.castShadow = true;
         scene.add(spotLight);
 
@@ -40,15 +42,22 @@ const Component = React.createClass({
             faces = [];
 
         var lng_n = yos.length,
-            lat_n,
-            z;
+            lat_n;
+
+        // Convert from deltas and flip
+        for (var x = 0; x < yos.length; ++x) {
+            lat_n = yos[x].length;
+            for (var y = 0; y < lat_n; ++y) {
+                yos[x][y] = y ? yos[x][y-1] + yos[x][y] : yos[x][y];
+            }
+
+            yos[x].reverse();
+        }
 
         for (var x = 0; x < yos.length; ++x) {
             lat_n = yos[x].length;
             for (var y = 0; y < lat_n; ++y) {
-                lat_n = yos[x].length;
-                z = 0 === y ? yos[x][y] : z + yos[x][y];
-                vertices.push(new THREE.Vector3(x, y, z / 100));
+                vertices.push(new THREE.Vector3(x, y, yos[x][y] / 100));
             
                 if (x && y) {
                     // Create two triangular sides for a square in which 
@@ -71,6 +80,7 @@ const Component = React.createClass({
         geom.computeFaceNormals();
 
         var materials = [
+            // new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true }),
             new THREE.MeshLambertMaterial({ opacity: 0.6, color: 0x444444 })
         ];
 
@@ -80,8 +90,12 @@ const Component = React.createClass({
         render();
 
         function render() {
-            camera.position.y += .005;
-            spotLight.position.z -= .1;
+            camera.position.x -= .1;
+
+            if (camera.position.x < 0) {
+                camera.position.x = yos.length + 200;
+            }
+            // spotLight.position.z -= .1;
 
             requestAnimationFrame(render);
             renderer.render(scene, camera);
