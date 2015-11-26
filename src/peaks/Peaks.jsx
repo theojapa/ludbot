@@ -1,31 +1,26 @@
 import React from 'react';
-import { Button, ButtonGroup } from 'react-bootstrap';
 import THREE from 'three';
 
 // Outer array: -119.401 to -119.8 longitude (.001 step)
 // Inner array: 37.7 to 37.8 latitude
 // The first value is the elevation at 37.7 latitude, and subsequent values are deltas
 // e.g., [ 2810, -21, 5, -7, ... ] => [ 2810, 2789, 2794, 2787, ... ]
-import yos from './elevations.json';
+import yos from './yosemite.json';
 
 const Component = React.createClass({
     componentDidMount: function() {
         var scene = new THREE.Scene();
-        // scene.fog = new THREE.FogExp2(0xffffff, 0.015);
         scene.fog = new THREE.Fog(0xffffff, 10, 200);
 
         var renderer = new THREE.WebGLRenderer();
         renderer.setClearColor(new THREE.Color(0xffffff, 1.0));
         renderer.setSize(window.innerWidth, window.innerHeight);
 
-        var axes = new THREE.AxisHelper(20);
-        scene.add(axes);
+        var xMiddle = Math.floor(yos.length / 2),
+            yMiddle = Math.floor(yos[0].length / 2);
 
         var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.up = new THREE.Vector3( 0, 0, 1 );
-        var xMiddle = Math.floor(yos.length / 2);
-        var yMiddle = Math.floor(yos[0].length / 2);
-
         camera.position.x = yos.length + 10;
         camera.position.y = yMiddle;
         camera.position.z = 30;
@@ -39,9 +34,8 @@ const Component = React.createClass({
         this._el.appendChild(renderer.domElement);
 
         var vertices = [],
-            faces = [];
-
-        var lng_n = yos.length,
+            faces = [],
+            lng_n = yos.length,
             lat_n;
 
         // Convert from deltas and flip
@@ -61,7 +55,7 @@ const Component = React.createClass({
             
                 if (x && y) {
                     // Create two triangular sides for a square in which 
-                    // this vertex is the upper right corner
+                    // this vertex is at upper right
                     let ur = vertices.length - 1,   // upper right
                         ul = ur - 1,                // upper left
                         lr = ur - lat_n,            // lower right
@@ -80,8 +74,7 @@ const Component = React.createClass({
         geom.computeFaceNormals();
 
         var materials = [
-            // new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true }),
-            new THREE.MeshLambertMaterial({ opacity: 0.6, color: 0x444444 })
+            new THREE.MeshLambertMaterial({ color: 0x444444 })
         ];
 
         var mesh = THREE.SceneUtils.createMultiMaterialObject(geom, materials);
@@ -95,11 +88,18 @@ const Component = React.createClass({
             if (camera.position.x < 0) {
                 camera.position.x = yos.length + 200;
             }
-            // spotLight.position.z -= .1;
 
             requestAnimationFrame(render);
             renderer.render(scene, camera);
         }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.addEventListener('resize', onResize, false);
     },
     render() {
         return (
