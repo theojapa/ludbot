@@ -7,11 +7,10 @@ import THREE from 'three';
 // e.g., [ 2810, -21, 5, -7, ... ] => [ 2810, 2789, 2794, 2787, ... ]
 import yos from './yosemite.json';
 
+var zDivider = 100;
+
 const Component = React.createClass({
     componentDidMount: function() {
-        var scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0xffffff, 10, 200);
-
         var renderer = new THREE.WebGLRenderer();
         renderer.setClearColor(new THREE.Color(0xffffff, 1.0));
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -19,54 +18,51 @@ const Component = React.createClass({
         var xMiddle = Math.floor(yos.length / 2),
             yMiddle = Math.floor(yos[0].length / 2);
 
+        var steer = { x: 0, y: 0, z: 0 };
+
         var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.up = new THREE.Vector3( 0, 0, 1 );
-        camera.position.x = yos.length + 10;
-        camera.position.y = yMiddle;
-        camera.position.z = 30;
+        camera.up = new THREE.Vector3(0, 0, 1);
+        camera.position.set(yos.length + 10, yMiddle, 30);
         camera.lookAt(new THREE.Vector3(xMiddle, yMiddle, 0));
 
-        var spotLight = new THREE.SpotLight(0xffffff);
-        spotLight.position.set(-100, xMiddle, 200);
-        spotLight.castShadow = true;
-        scene.add(spotLight);
+        var spotlight = new THREE.SpotLight(0xffffff);
+        spotlight.position.set(-100, xMiddle, 200);
 
         this._el.appendChild(renderer.domElement);
 
+        // Convert from deltas and flip
+        yos.forEach(function(lng) {
+            lng.forEach(function(z, y) {
+                lng[y] = y ? lng[y - 1] + z : z;
+            });
+            lng.reverse();
+        });
+
         var vertices = [],
             faces = [],
-            lng_n = yos.length,
-            lat_n;
+            xyz = {};
 
-        // Convert from deltas and flip
-        for (var x = 0; x < yos.length; ++x) {
-            lat_n = yos[x].length;
-            for (var y = 0; y < lat_n; ++y) {
-                yos[x][y] = y ? yos[x][y-1] + yos[x][y] : yos[x][y];
-            }
+        yos.forEach(function(lng, x) {
+            xyz[x] = {};
+            lng.forEach(function(z, y) {
+                vertices.push(new THREE.Vector3(x, y, z / zDivider));
 
-            yos[x].reverse();
-        }
-
-        for (var x = 0; x < yos.length; ++x) {
-            lat_n = yos[x].length;
-            for (var y = 0; y < lat_n; ++y) {
-                vertices.push(new THREE.Vector3(x, y, yos[x][y] / 100));
+                xyz[x][y] = z;
             
                 if (x && y) {
                     // Create two triangular sides for a square in which 
-                    // this vertex is at upper right
+                    // this vertex is upper right
                     let ur = vertices.length - 1,   // upper right
                         ul = ur - 1,                // upper left
-                        lr = ur - lat_n,            // lower right
+                        lr = ur - lng.length,       // lower right
                         ll = lr - 1;                // lower left
 
                     // Clockwise
                     faces.push(new THREE.Face3(ur, lr, ll));
                     faces.push(new THREE.Face3(ul, ur, ll));
-                }
-            }
-        }
+                }            
+            });
+        });
 
         var geom = new THREE.Geometry();
         geom.vertices = vertices;
@@ -78,28 +74,71 @@ const Component = React.createClass({
         ];
 
         var mesh = THREE.SceneUtils.createMultiMaterialObject(geom, materials);
+
+        var scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0xffffff, 10, 200);
+        scene.add(spotlight);
         scene.add(mesh);
 
-        render();
+        function renderScene() {
+            var y, z;
 
-        function render() {
-            camera.position.x -= .1;
+            camera.position.x -= 0.1;
+            camera.position.y += steer.y;
+            camera.position.z += steer.z;
 
             if (camera.position.x < 0) {
                 camera.position.x = yos.length + 200;
             }
 
-            requestAnimationFrame(render);
+            // Prevent crashing into the ground
+            y = xyz[Math.floor(camera.position.x)];
+            if (y) {
+                z = y[Math.floor(camera.position.y)];
+                if (undefined !== z) {
+                    z = z / zDivider;
+                }
+
+                if (camera.position.z < z) {
+                    camera.position.z = z + 1;
+                    steer.z = 0.1;
+                } else if (camera.position.z - 2 < z) {
+                    steer.z = 0.0;
+                }
+            }
+
+            requestAnimationFrame(renderScene);
             renderer.render(scene, camera);
         }
 
-        function onResize() {
+        function handleResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        window.addEventListener('resize', onResize, false);
+        window.addEventListener('resize', handleResize, false);
+        window.addEventListener('mousemove', handleMouseMove, false);
+
+        function handleMouseMove(ev) {
+            if (ev.pageY < window.innerHeight / 3) {
+                steer.z = 0.1; // Ascend if mouse in top third
+            } else if (ev.pageY > window.innerHeight * 2 / 3) {
+                steer.z = -0.1; // Descend if mouse in bottom third
+            } else {
+                steer.z = 0.0;
+            }
+
+            if (ev.pageX < window.innerWidth / 3) {
+                steer.y = -0.1; // Move left if mouse in left third
+            } else if (ev.pageX > window.innerWidth * 2 / 3) {
+                steer.y = 0.1; // Move right if mouse in right third
+            } else {
+                steer.y = 0.0;
+            }
+        }
+
+        renderScene();
     },
     render() {
         return (
