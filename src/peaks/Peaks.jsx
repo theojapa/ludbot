@@ -88,7 +88,8 @@ const Component = React.createClass({
             camera.position.z += steer.z;
 
             if (camera.position.x < 0) {
-                camera.position.x = yos.length + 200;
+                camera.position.set(yos.length + 200, yMiddle, 30);
+                steer = { x: 0, y: 0, z: 0 };
             }
 
             // Prevent crashing into the ground
@@ -121,6 +122,10 @@ const Component = React.createClass({
         window.addEventListener('mousemove', handleMouseMove, false);
 
         function handleMouseMove(ev) {
+            if (camera.position.x > yos.length) {
+                return;
+            }
+
             if (ev.pageY < window.innerHeight / 3) {
                 steer.z = 0.1; // Ascend if mouse in top third
             } else if (ev.pageY > window.innerHeight * 2 / 3) {
